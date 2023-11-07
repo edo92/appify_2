@@ -1,22 +1,35 @@
-/**
- * This is not a production server yet!
- * This is only a minimal backend to get started.
- */
-
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
+import cookieParser from 'cookie-parser';
 
+import { isProdEnv } from './util';
 import { AppModule } from './app/app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  const config = app.get(ConfigService);
+  const serverPort = config.get('app.serverPort') || 3000;
+  const domainOrigin = config.get('app.domainUrl');
   const globalPrefix = 'api';
+
+  app.use(cookieParser());
+  app.enableCors({
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-TOKEN'],
+    origin: domainOrigin,
+  });
+
   app.setGlobalPrefix(globalPrefix);
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
+  app.useGlobalPipes(new ValidationPipe({ transform: true }));
+
+  await app.listen(serverPort);
+
   Logger.log(
-    `🚀 Application is running on: http://localhost:${port}/${globalPrefix}`
+    `🚀 Application is running on:${domainOrigin}:${serverPort}/${globalPrefix}`
   );
+  Logger.log(`${isProdEnv() ? '🚀 Production' : '🚧 Development'} environment`);
 }
 
 bootstrap();
